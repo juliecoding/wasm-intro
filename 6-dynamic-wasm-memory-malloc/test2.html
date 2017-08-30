@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+  <script>
+    function fetchAndInstantiateWasm (url, imports) {
+      return fetch(url)
+      .then(res => {
+        if (res.ok)
+          return res.arrayBuffer();
+        throw new Error(`Unable to fetch Web Assembly file ${url}.`)
+      })
+      .then(bytes => WebAssembly.compile(bytes))
+      .then(module => WebAssembly.instantiate(module, imports || {}))
+      .then(instance => instance.exports);
+    }
+
+    let wasmMalloc, wasmFree;
+    fetchAndInstantiateWasm('./program.wasm', {
+      env: {
+        malloc: len => wasmMalloc(len),
+        free: addr => wasmFree(addr)
+      }
+    })
+    .then(m => {
+      fetchAndInstantiateWasm('./memory.wasm', {
+        env: {
+          memory: m.memory
+        }
+      })
+      .then(m => {
+        wasmMalloc = m.malloc
+        wasmFree = m.free
+      })
+      .then(() => {
+        console.log(m.createRecord(2, 1.1, 2.2, 4.5, 6.7));
+      });
+    });
+  </script>
